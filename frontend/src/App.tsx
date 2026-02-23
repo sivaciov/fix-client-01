@@ -145,6 +145,9 @@ const formatValue = (value: string | number | null | undefined): string => {
   return String(value)
 }
 
+const ordersPortHint =
+  'Check dev proxy target and restart frontend with VITE_BACKEND_PORT set to the backend that serves /orders (for example: VITE_BACKEND_PORT=8081 npm run dev).'
+
 function App() {
   const [message, setMessage] = useState('Checking backend health...')
   const [fixStatus, setFixStatus] = useState<FixStatusResponse | null>(null)
@@ -216,9 +219,8 @@ function App() {
       const response = await fetch('/orders')
 
       if (!response.ok) {
-        setOrdersError(
-          `Unable to load orders (request failed with status ${response.status}).`,
-        )
+        const baseMessage = `Unable to load orders (request failed with status ${response.status}).`
+        setOrdersError(response.status === 404 ? `${baseMessage} ${ordersPortHint}` : baseMessage)
         setOrdersReady(true)
         return
       }
@@ -340,9 +342,13 @@ function App() {
       }
 
       if (!response.ok) {
+        const submitError =
+          response.status === 404
+            ? `Order submit failed with status ${response.status}. ${ordersPortHint}`
+            : `Order submit failed with status ${response.status}.`
         setSubmitResult({
           kind: 'error',
-          message: responseMessage || `Order submit failed with status ${response.status}.`,
+          message: responseMessage || submitError,
         })
         return
       }

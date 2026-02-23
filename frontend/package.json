@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api8080": "VITE_BACKEND_PORT=8080 vite --host 127.0.0.1 --port 5173",
+    "dev:api8081": "VITE_BACKEND_PORT=8081 vite --host 127.0.0.1 --port 5173",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
