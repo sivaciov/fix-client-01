@@ -9,7 +9,13 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest --config vitest.config.ts run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:ci": "playwright test --workers=1 --reporter=line",
+    "e2e:backend": "cd ../backend && mvn -q spring-boot:run",
+    "e2e:backend:ready": "http-get://127.0.0.1:8080/health",
+    "e2e:frontend": "vite --host 127.0.0.1 --port 5173",
+    "e2e:frontend:ready": "http-get://127.0.0.1:5173",
+    "e2e:local": "PLAYWRIGHT_DISABLE_WEBSERVER=1 npx start-server-and-test \"npm run e2e:backend\" http://127.0.0.1:8080/health \"npx start-server-and-test \\\"npm run e2e:frontend\\\" http://127.0.0.1:5173 \\\"npm run test:e2e:ci\\\"\""
   },
   "dependencies": {
     "react": "^19.2.0",
