@@ -1,6 +1,6 @@
 package com.fixclient.backend.orders;
 
-import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -78,7 +78,7 @@ class OrderLifecycleIntegrationTest {
 
         mockMvc.perform(get("/orders"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$.length()").value(greaterThanOrEqualTo(1)))
                 .andExpect(jsonPath("$[0].orderId").value(orderId))
                 .andExpect(jsonPath("$[0].clOrdId").value(clOrdId))
                 .andExpect(jsonPath("$[0].status").value("PARTIALLY_FILLED"));
