@@ -1,18 +1,16 @@
 package com.fixclient.backend.execution;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 
-public record ExecutionReportEvent(
-        String clOrdId,
+public record SimulateExecutionReportRequest(
         String orderId,
+        String clOrdId,
         String execType,
         String ordStatus,
+        BigDecimal lastQty,
+        BigDecimal lastPx,
         BigDecimal cumQty,
         BigDecimal leavesQty,
         BigDecimal avgPx,
-        BigDecimal lastPx,
-        BigDecimal lastQty,
-        String text,
-        Instant updatedAt) {
+        String text) {
 }

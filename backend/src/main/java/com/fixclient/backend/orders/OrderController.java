@@ -4,6 +4,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -19,7 +20,7 @@ public class OrderController {
     }
 
     @PostMapping("/orders")
-    public CreateOrderResponse createOrder(@RequestBody CreateOrderRequest request) {
+    public OrderRecord createOrder(@RequestBody CreateOrderRequest request) {
         return orderService.createOrder(request);
     }
 
@@ -28,9 +29,20 @@ public class OrderController {
         return orderService.listOrders();
     }
 
+    @GetMapping("/orders/{orderId}")
+    public OrderRecord getOrder(@PathVariable String orderId) {
+        return orderService.getOrderById(orderId);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleValidation(IllegalArgumentException ex) {
+        return new ErrorResponse(ex.getMessage());
+    }
+
+    @ExceptionHandler(OrderNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleNotFound(OrderNotFoundException ex) {
         return new ErrorResponse(ex.getMessage());
     }
 

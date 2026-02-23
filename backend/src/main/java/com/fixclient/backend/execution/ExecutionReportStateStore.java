@@ -1,5 +1,6 @@
 package com.fixclient.backend.execution;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -22,19 +23,12 @@ public class ExecutionReportStateStore {
             return;
         }
 
-        OrderExecutionState state = new OrderExecutionState(
-                event.lastExecType(),
-                event.lastOrdStatus(),
-                event.filledQty(),
-                event.leavesQty(),
-                event.avgPx(),
-                event.lastPx(),
-                event.lastQty(),
-                event.lastText(),
-                event.updatedAt());
+        String primaryKey = keys.iterator().next();
+        OrderExecutionState current = latestByOrderKey.get(primaryKey);
+        OrderExecutionState merged = merge(current, event);
 
         for (String key : keys) {
-            latestByOrderKey.put(key, state);
+            latestByOrderKey.put(key, merged);
         }
 
         recentReports.addFirst(event);
@@ -43,12 +37,30 @@ public class ExecutionReportStateStore {
         }
     }
 
-    public OrderExecutionState latestFor(String orderId) {
-        return latestByOrderKey.get(orderId);
+    public OrderExecutionState latestFor(String orderKey) {
+        return latestByOrderKey.get(orderKey);
     }
 
     public List<ExecutionReportEvent> recentReports() {
         return List.copyOf(new ArrayList<>(recentReports));
+    }
+
+    private OrderExecutionState merge(OrderExecutionState current, ExecutionReportEvent event) {
+        Instant now = event.updatedAt() == null ? Instant.now() : event.updatedAt();
+        return new OrderExecutionState(
+                firstNonNull(event.execType(), current == null ? null : current.execType()),
+                firstNonNull(event.ordStatus(), current == null ? null : current.ordStatus()),
+                firstNonNull(event.cumQty(), current == null ? null : current.filledQty()),
+                firstNonNull(event.leavesQty(), current == null ? null : current.leavesQty()),
+                firstNonNull(event.avgPx(), current == null ? null : current.avgPx()),
+                firstNonNull(event.lastPx(), current == null ? null : current.lastPx()),
+                firstNonNull(event.lastQty(), current == null ? null : current.lastQty()),
+                firstNonNull(event.text(), current == null ? null : current.text()),
+                now);
+    }
+
+    private <T> T firstNonNull(T preferred, T fallback) {
+        return preferred == null ? fallback : preferred;
     }
 
     private Set<String> keys(ExecutionReportEvent event) {

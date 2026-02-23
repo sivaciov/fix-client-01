@@ -45,14 +45,14 @@ class ExecutionReportMapperTest {
 
         assertEquals("cl-100", event.clOrdId());
         assertEquals("ord-501", event.orderId());
-        assertEquals(String.valueOf(ExecType.FILL), event.lastExecType());
-        assertEquals(String.valueOf(OrdStatus.FILLED), event.lastOrdStatus());
-        assertEquals("100.0", event.filledQty().toPlainString());
+        assertEquals(String.valueOf(ExecType.FILL), event.execType());
+        assertEquals(String.valueOf(OrdStatus.FILLED), event.ordStatus());
+        assertEquals("100.0", event.cumQty().toPlainString());
         assertEquals("0.0", event.leavesQty().toPlainString());
         assertEquals("101.55", event.avgPx().toPlainString());
         assertEquals("101.7", event.lastPx().toPlainString());
         assertEquals("10.0", event.lastQty().toPlainString());
-        assertEquals("done", event.lastText());
+        assertEquals("done", event.text());
         assertEquals(now, event.updatedAt());
     }
 
@@ -68,7 +68,7 @@ class ExecutionReportMapperTest {
         assertNotNull(event.updatedAt());
         assertNull(event.clOrdId());
         assertNull(event.orderId());
-        assertNull(event.filledQty());
-        assertNull(event.lastExecType());
+        assertNull(event.cumQty());
+        assertNull(event.execType());
     }
 }

@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import com.fixclient.backend.execution.ExecutionReportIngestionService;
 import com.fixclient.backend.execution.ExecutionReportMapper;
 import com.fixclient.backend.execution.ExecutionReportStateStore;
+import com.fixclient.backend.orders.InMemoryOrderStore;
+import com.fixclient.backend.orders.OrderService;
 import org.junit.jupiter.api.Test;
 import quickfix.Message;
 import quickfix.SessionID;
@@ -18,7 +20,9 @@ class QuickFixExecutionApplicationTest {
     @Test
     void forwardsExecutionReportMessageToIngestionService() throws Exception {
         ExecutionReportStateStore stateStore = new ExecutionReportStateStore();
-        ExecutionReportIngestionService service = new ExecutionReportIngestionService(new ExecutionReportMapper(), stateStore);
+        OrderService orderService = new OrderService(new InMemoryOrderStore());
+        ExecutionReportIngestionService service =
+                new ExecutionReportIngestionService(new ExecutionReportMapper(), stateStore, orderService);
         QuickFixExecutionApplication app = new QuickFixExecutionApplication(service);
 
         Message message = new Message();
@@ -34,7 +38,9 @@ class QuickFixExecutionApplicationTest {
     @Test
     void ignoresNonExecutionReportMessages() throws Exception {
         ExecutionReportStateStore stateStore = new ExecutionReportStateStore();
-        ExecutionReportIngestionService service = new ExecutionReportIngestionService(new ExecutionReportMapper(), stateStore);
+        OrderService orderService = new OrderService(new InMemoryOrderStore());
+        ExecutionReportIngestionService service =
+                new ExecutionReportIngestionService(new ExecutionReportMapper(), stateStore, orderService);
         QuickFixExecutionApplication app = new QuickFixExecutionApplication(service);
 
         Message message = new Message();

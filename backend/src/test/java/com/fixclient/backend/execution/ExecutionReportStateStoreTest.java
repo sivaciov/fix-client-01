@@ -34,8 +34,8 @@ class ExecutionReportStateStoreTest {
                 "1",
                 "1",
                 BigDecimal.valueOf(5),
-                BigDecimal.valueOf(5),
-                BigDecimal.valueOf(100),
+                null,
+                null,
                 BigDecimal.valueOf(100.5),
                 BigDecimal.valueOf(5),
                 "partial",
@@ -46,13 +46,15 @@ class ExecutionReportStateStoreTest {
 
         assertNotNull(byClOrdId);
         assertNotNull(byOrderId);
-        assertEquals("1", byClOrdId.lastExecType());
-        assertEquals("1", byOrderId.lastOrdStatus());
+        assertEquals("1", byClOrdId.execType());
+        assertEquals("1", byOrderId.ordStatus());
         assertEquals("5", byOrderId.filledQty().toPlainString());
-        assertEquals("partial", byOrderId.lastText());
+        assertEquals("10", byOrderId.leavesQty().toPlainString());
+        assertEquals("100.5", byOrderId.lastPx().toPlainString());
+        assertEquals("partial", byOrderId.text());
         assertEquals(now.plusSeconds(5), byOrderId.updatedAt());
         assertEquals(2, store.recentReports().size());
-        assertEquals("partial", store.recentReports().get(0).lastText());
+        assertEquals("partial", store.recentReports().get(0).text());
     }
 
     @Test
