@@ -1,105 +1,141 @@
 #!/usr/bin/env bash
+
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-FRONTEND_DIR="$ROOT_DIR/frontend"
 BACKEND_DIR="$ROOT_DIR/backend"
+FRONTEND_DIR="$ROOT_DIR/frontend"
 
-BACKEND_HOST="${E2E_BACKEND_HOST:-127.0.0.1}"
-FRONTEND_HOST="${E2E_FRONTEND_HOST:-127.0.0.1}"
-BACKEND_PORT="${E2E_BACKEND_PORT:-8080}"
-FRONTEND_PORT="${E2E_FRONTEND_PORT:-5173}"
-STARTUP_TIMEOUT_SECONDS="${E2E_STARTUP_TIMEOUT_SECONDS:-180}"
-PLAYWRIGHT_WORKERS="${PLAYWRIGHT_WORKERS:-1}"
-PLAYWRIGHT_REPORTER="${PLAYWRIGHT_REPORTER:-line}"
+HOST="${E2E_HOST:-127.0.0.1}"
+BACKEND_START_TIMEOUT="${BACKEND_START_TIMEOUT:-120}"
+FRONTEND_START_TIMEOUT="${FRONTEND_START_TIMEOUT:-120}"
+PLAYWRIGHT_WORKERS="${PLAYWRIGHT_WORKERS:-}"
+PLAYWRIGHT_REPORTER="${PLAYWRIGHT_REPORTER:-}"
 
-BACKEND_URL="http://${BACKEND_HOST}:${BACKEND_PORT}/health"
-FRONTEND_URL="http://${FRONTEND_HOST}:${FRONTEND_PORT}"
-BASE_URL="${PLAYWRIGHT_BASE_URL:-$FRONTEND_URL}"
+RUN_ID="${E2E_RUN_ID:-$RANDOM-$RANDOM-$$}"
+BACKEND_LOG="${TMPDIR:-/tmp}/fix-client-backend-e2e-${RUN_ID}.log"
+FRONTEND_LOG="${TMPDIR:-/tmp}/fix-client-frontend-e2e-${RUN_ID}.log"
 
-BACKEND_LOG="${TMPDIR:-/tmp}/fix-client-backend-e2e.log"
-FRONTEND_LOG="${TMPDIR:-/tmp}/fix-client-frontend-e2e.log"
+backend_pid=""
+frontend_pid=""
 
-BACKEND_PID=""
-FRONTEND_PID=""
+pick_free_port() {
+  node -e "const net=require('net');const s=net.createServer();s.listen(0,'${HOST}',()=>{console.log(s.address().port);s.close();});"
+}
+
+is_port_available() {
+  local port="$1"
+  node -e "const net=require('net');const s=net.createServer();s.once('error',()=>process.exit(1));s.listen(${port},'${HOST}',()=>s.close(()=>process.exit(0)));" >/dev/null 2>&1
+}
+
+pick_distinct_free_port() {
+  local other_port="${1:-}"
+  local candidate=""
+  while true; do
+    candidate="$(pick_free_port)"
+    if [[ -n "$other_port" && "$candidate" == "$other_port" ]]; then
+      continue
+    fi
+    if is_port_available "$candidate"; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+}
+
+wait_for_url() {
+  local url="$1"
+  local timeout_seconds="$2"
+  local started_at
+  started_at="$(date +%s)"
+  while true; do
+    if curl --silent --show-error --fail "$url" >/dev/null 2>&1; then
+      return 0
+    fi
+
+    if (( "$(date +%s)" - started_at >= timeout_seconds )); then
+      return 1
+    fi
+    sleep 1
+  done
+}
 
 cleanup() {
   set +e
-  if [[ -n "$FRONTEND_PID" ]] && kill -0 "$FRONTEND_PID" 2>/dev/null; then
-    kill "$FRONTEND_PID" 2>/dev/null || true
-    wait "$FRONTEND_PID" 2>/dev/null || true
+
+  if [[ -n "${frontend_pid}" ]] && kill -0 "${frontend_pid}" >/dev/null 2>&1; then
+    kill "${frontend_pid}" >/dev/null 2>&1 || true
+    wait "${frontend_pid}" >/dev/null 2>&1 || true
   fi
-  if [[ -n "$BACKEND_PID" ]] && kill -0 "$BACKEND_PID" 2>/dev/null; then
-    kill "$BACKEND_PID" 2>/dev/null || true
-    wait "$BACKEND_PID" 2>/dev/null || true
+
+  if [[ -n "${backend_pid}" ]] && kill -0 "${backend_pid}" >/dev/null 2>&1; then
+    kill "${backend_pid}" >/dev/null 2>&1 || true
+    wait "${backend_pid}" >/dev/null 2>&1 || true
   fi
 }
 
 trap cleanup EXIT INT TERM
 
-wait_for_url() {
-  local url="$1"
-  local timeout="$2"
-  local label="$3"
-  local pid="$4"
-  local log_file="$5"
-  local start
+BACKEND_PORT="${E2E_BACKEND_PORT:-$(pick_free_port)}"
+FRONTEND_PORT="${E2E_FRONTEND_PORT:-$(pick_distinct_free_port "$BACKEND_PORT")}"
+if [[ "$BACKEND_PORT" == "$FRONTEND_PORT" ]]; then
+  FRONTEND_PORT="$(pick_distinct_free_port "$BACKEND_PORT")"
+fi
+BASE_URL="${PLAYWRIGHT_BASE_URL:-http://${HOST}:${FRONTEND_PORT}}"
 
-  start="$(date +%s)"
+echo "Backend log: ${BACKEND_LOG}"
+echo "Frontend log: ${FRONTEND_LOG}"
+echo "Starting backend on ${HOST}:${BACKEND_PORT}"
 
-  while true; do
-    if ! kill -0 "$pid" 2>/dev/null; then
-      echo "$label process exited before becoming ready. See $log_file" >&2
-      tail -n 80 "$log_file" >&2 || true
-      return 1
-    fi
-
-    if curl --fail --silent --show-error --max-time 2 "$url" > /dev/null; then
-      echo "$label is ready at $url"
-      return 0
-    fi
-
-    if (( "$(date +%s)" - start >= timeout )); then
-      echo "Timed out waiting for $label at $url after ${timeout}s" >&2
-      return 1
-    fi
-
-    sleep 1
-  done
-}
-
-require_port_free() {
-  local port="$1"
-  local label="$2"
-
-  if lsof -nP -iTCP:"$port" -sTCP:LISTEN > /dev/null 2>&1; then
-    echo "$label port $port is already in use. Free it or set a different E2E_*_PORT." >&2
-    lsof -nP -iTCP:"$port" -sTCP:LISTEN >&2 || true
-    return 1
-  fi
-}
-
-require_port_free "$BACKEND_PORT" "Backend"
-require_port_free "$FRONTEND_PORT" "Frontend"
-
-echo "Starting backend on ${BACKEND_HOST}:${BACKEND_PORT}"
 (
   cd "$BACKEND_DIR"
-  mvn -q -Dmaven.test.skip=true spring-boot:run -Dspring-boot.run.arguments="--server.port=${BACKEND_PORT}"
-) > "$BACKEND_LOG" 2>&1 &
-BACKEND_PID=$!
+  SERVER_PORT="$BACKEND_PORT" mvn -q spring-boot:run
+) >"$BACKEND_LOG" 2>&1 &
+backend_pid="$!"
 
-wait_for_url "$BACKEND_URL" "$STARTUP_TIMEOUT_SECONDS" "Backend" "$BACKEND_PID" "$BACKEND_LOG"
+if ! kill -0 "${backend_pid}" >/dev/null 2>&1; then
+  echo "Backend process exited before health checks. See ${BACKEND_LOG}" >&2
+  exit 1
+fi
 
-echo "Starting frontend on ${FRONTEND_HOST}:${FRONTEND_PORT}"
+if ! wait_for_url "http://${HOST}:${BACKEND_PORT}/health" "$BACKEND_START_TIMEOUT"; then
+  echo "Backend failed to become ready. See ${BACKEND_LOG}" >&2
+  exit 1
+fi
+
+echo "Starting frontend on ${HOST}:${FRONTEND_PORT}"
 (
   cd "$FRONTEND_DIR"
-  npm run dev -- --host "$FRONTEND_HOST" --port "$FRONTEND_PORT" --strictPort
-) > "$FRONTEND_LOG" 2>&1 &
-FRONTEND_PID=$!
+  VITE_BACKEND_PORT="$BACKEND_PORT" npm run dev -- --host "$HOST" --port "$FRONTEND_PORT"
+) >"$FRONTEND_LOG" 2>&1 &
+frontend_pid="$!"
 
-wait_for_url "$FRONTEND_URL" "$STARTUP_TIMEOUT_SECONDS" "Frontend" "$FRONTEND_PID" "$FRONTEND_LOG"
+if ! kill -0 "${frontend_pid}" >/dev/null 2>&1; then
+  echo "Frontend process exited before readiness checks. See ${FRONTEND_LOG}" >&2
+  exit 1
+fi
+
+if ! wait_for_url "$BASE_URL" "$FRONTEND_START_TIMEOUT"; then
+  echo "Frontend failed to become ready. See ${FRONTEND_LOG}" >&2
+  exit 1
+fi
 
 echo "Running Playwright against ${BASE_URL}"
-cd "$FRONTEND_DIR"
-PLAYWRIGHT_DISABLE_WEBSERVER=1 PLAYWRIGHT_BASE_URL="$BASE_URL" npx playwright test --workers="$PLAYWRIGHT_WORKERS" --reporter="$PLAYWRIGHT_REPORTER" "$@"
+
+PLAYWRIGHT_CMD=(npx playwright test)
+if [[ -n "$PLAYWRIGHT_WORKERS" ]]; then
+  PLAYWRIGHT_CMD+=("--workers=$PLAYWRIGHT_WORKERS")
+fi
+if [[ -n "$PLAYWRIGHT_REPORTER" ]]; then
+  PLAYWRIGHT_CMD+=("--reporter=$PLAYWRIGHT_REPORTER")
+fi
+PLAYWRIGHT_CMD+=("$@")
+
+(
+  cd "$FRONTEND_DIR"
+  PLAYWRIGHT_DISABLE_WEBSERVER=1 \
+    E2E_BACKEND_PORT="$BACKEND_PORT" \
+    E2E_FRONTEND_PORT="$FRONTEND_PORT" \
+    PLAYWRIGHT_BASE_URL="$BASE_URL" \
+    "${PLAYWRIGHT_CMD[@]}"
+)
