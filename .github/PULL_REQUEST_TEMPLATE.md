@@ -1,9 +1,16 @@
 ## What changed
 
+-
+
 ## Why
 
+-
+
 ## How to test
-- [ ] backend
-- [ ] frontend
+
+- [ ] Backend
+- [ ] Frontend
 
 ## Notes / follow-ups
+
+-

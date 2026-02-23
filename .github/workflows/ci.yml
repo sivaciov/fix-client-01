@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Set up Java 21
+        id: setup_java_21
+        continue-on-error: true
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Set up Java 17 fallback
+        if: ${{ steps.setup_java_21.outcome == 'failure' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Backend tests
+        if: ${{ hashFiles('backend/**') != '' }}
+        run: |
+          cd backend
+          mvn -q test
+
+      - name: Frontend install, test, and build
+        if: ${{ hashFiles('frontend/**') != '' }}
+        run: |
+          cd frontend
+          npm ci
+          npm test
+          npm run build
