@@ -1,7 +1,7 @@
 # Agent Workflow Rules
 
-This repo is worked on by multiple agents in parallel:
-- 3 code writers
+This repository is worked on by multiple agents in parallel:
+- 3 writer agents
 - 1 tester/QA agent
 
 ## Hard rules
@@ -13,21 +13,4 @@ This repo is worked on by multiple agents in parallel:
   - `agent/tester/<topic>`
 - Every change goes through a Pull Request.
 - Keep PRs small and single-purpose.
-- All PRs must pass CI.
-
-## Expectations
-- Writers: implement features + add/adjust unit tests for new behavior.
-- Tester: expands tests, adds integration tests, improves CI stability, fixes flaky tests.
-
-## Commit message prefixes
-- `backend: ...`
-- `frontend: ...`
-- `ci: ...`
-- `docs: ...`
-- `chore: ...`
-
-## PR template
-Include:
-- What changed
-- How to test
-- Notes / follow-ups
+- Required checks must pass.
