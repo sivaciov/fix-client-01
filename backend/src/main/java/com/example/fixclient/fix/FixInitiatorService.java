@@ -76,7 +76,25 @@ public class FixInitiatorService {
     }
 
     public InitiatorServiceStatus getStatus() {
-        return status.get();
+        InitiatorServiceStatus currentStatus = status.get();
+        if (hasConfig(currentStatus.config())) {
+            return currentStatus;
+        }
+
+        try {
+            SessionSettings settings = loadSessionSettings();
+            FixSessionConfig config = extractConfig(settings);
+            InitiatorServiceStatus enrichedStatus = new InitiatorServiceStatus(
+                    currentStatus.status(),
+                    currentStatus.details(),
+                    currentStatus.sessions(),
+                    config,
+                    currentStatus.diagnostics());
+            status.compareAndSet(currentStatus, enrichedStatus);
+            return status.get();
+        } catch (IOException | ConfigError ignored) {
+            return currentStatus;
+        }
     }
 
     SessionSettings loadSessionSettings() throws IOException, ConfigError {
@@ -154,5 +172,12 @@ public class FixInitiatorService {
                 currentStatus.sessions(),
                 currentStatus.config(),
                 new InitiatorDiagnostics(lastEvent, lastError, Instant.now()));
+    }
+
+    private boolean hasConfig(FixSessionConfig config) {
+        return !config.senderCompId().isBlank()
+                || !config.targetCompId().isBlank()
+                || !config.host().isBlank()
+                || config.port() != null;
     }
 }
