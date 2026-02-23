@@ -2,6 +2,7 @@ package com.fixclient.backend.market;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -41,5 +42,15 @@ class MarketDataStoreTest {
         assertEquals(later, store.latestUpdateAt());
         assertEquals("AAPL", store.all().get(0).symbol());
         assertEquals("MSFT", store.all().get(1).symbol());
+    }
+
+    @Test
+    void upsertRejectsCrossedQuoteAfterMerge() {
+        MarketDataStore store = new MarketDataStore();
+        Instant now = Instant.parse("2026-02-23T12:00:00Z");
+        store.upsert("AAPL", BigDecimal.valueOf(100), null, null, now, "SIMULATED");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> store.upsert("AAPL", null, BigDecimal.valueOf(99), null, now.plusSeconds(1), "SIMULATED"));
     }
 }

@@ -25,6 +25,7 @@ public class MarketDataStore {
             BigDecimal nextBid = bid != null ? bid : existing != null ? existing.bid() : null;
             BigDecimal nextAsk = ask != null ? ask : existing != null ? existing.ask() : null;
             BigDecimal nextLast = last != null ? last : existing != null ? existing.last() : null;
+            validateNotCrossed(nextBid, nextAsk);
             return new MarketQuote(symbol, nextBid, nextAsk, nextLast, updatedAt, source);
         });
     }
@@ -48,5 +49,11 @@ public class MarketDataStore {
                 .map(MarketQuote::updatedAt)
                 .max(Instant::compareTo)
                 .orElse(null);
+    }
+
+    private void validateNotCrossed(BigDecimal bid, BigDecimal ask) {
+        if (bid != null && ask != null && ask.compareTo(bid) < 0) {
+            throw new IllegalArgumentException("ask must be greater than or equal to bid");
+        }
     }
 }

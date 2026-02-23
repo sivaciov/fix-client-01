@@ -47,10 +47,15 @@ public class MarketDataService {
         }
 
         String symbol = normalizeSymbol(request.symbol());
-        validateQuoteValues(request.bid(), request.ask(), request.last());
+        validateInputFields(request.bid(), request.ask(), request.last());
+        validateMergedQuote(symbol, request.bid(), request.ask(), request.last());
 
         Instant now = Instant.now(clock);
-        return store.upsert(symbol, request.bid(), request.ask(), request.last(), now, SIMULATED_SOURCE);
+        try {
+            return store.upsert(symbol, request.bid(), request.ask(), request.last(), now, SIMULATED_SOURCE);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
     }
 
     private String normalizeSymbol(String symbol) {
@@ -65,7 +70,7 @@ public class MarketDataService {
         return normalized;
     }
 
-    private void validateQuoteValues(BigDecimal bid, BigDecimal ask, BigDecimal last) {
+    private void validateInputFields(BigDecimal bid, BigDecimal ask, BigDecimal last) {
         if (bid == null && ask == null && last == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -75,8 +80,17 @@ public class MarketDataService {
         validateNonNegative("bid", bid);
         validateNonNegative("ask", ask);
         validateNonNegative("last", last);
+    }
 
-        if (bid != null && ask != null && ask.compareTo(bid) < 0) {
+    private void validateMergedQuote(String symbol, BigDecimal bid, BigDecimal ask, BigDecimal last) {
+        MarketQuote existing = store.find(symbol).orElse(null);
+        BigDecimal nextBid = bid != null ? bid : existing != null ? existing.bid() : null;
+        BigDecimal nextAsk = ask != null ? ask : existing != null ? existing.ask() : null;
+        BigDecimal nextLast = last != null ? last : existing != null ? existing.last() : null;
+        validateNonNegative("bid", nextBid);
+        validateNonNegative("ask", nextAsk);
+        validateNonNegative("last", nextLast);
+        if (nextBid != null && nextAsk != null && nextAsk.compareTo(nextBid) < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ask must be greater than or equal to bid");
         }
     }

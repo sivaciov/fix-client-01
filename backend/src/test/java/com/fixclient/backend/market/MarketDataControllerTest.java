@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.hamcrest.Matchers.hasItem;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,25 +22,26 @@ class MarketDataControllerTest {
 
     @Test
     void endpointsReturnExpectedPayloadShapes() throws Exception {
+        String symbol = "A2TST1";
         mockMvc.perform(post("/market/simulate")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"symbol\":\"AAPL\",\"bid\":190.1}"))
+                        .content("{\"symbol\":\"" + symbol + "\",\"bid\":190.1,\"ask\":190.2}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.symbol").value("AAPL"))
+                .andExpect(jsonPath("$.symbol").value(symbol))
                 .andExpect(jsonPath("$.source").value("SIMULATED"))
                 .andExpect(jsonPath("$.updatedAt").isNotEmpty());
 
         mockMvc.perform(get("/market/status"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.symbolsTracked").value(1))
+                .andExpect(jsonPath("$.symbolsTracked").isNumber())
                 .andExpect(jsonPath("$.updatedAt").isNotEmpty());
 
-        mockMvc.perform(get("/market/quote").param("symbol", "AAPL"))
+        mockMvc.perform(get("/market/quote").param("symbol", symbol))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.symbol").value("AAPL"));
+                .andExpect(jsonPath("$.symbol").value(symbol));
 
         mockMvc.perform(get("/market/quotes"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].symbol").value("AAPL"));
+                .andExpect(jsonPath("$[*].symbol").value(hasItem(symbol)));
     }
 }
