@@ -1,6 +1,6 @@
 package com.fixclient.backend;
 
-import com.example.fixclient.fix.InitiatorStatus;
+import com.example.fixclient.fix.InitiatorServiceStatus;
 
 public interface FixControlService {
 
@@ -8,5 +8,5 @@ public interface FixControlService {
 
     void stop();
 
-    InitiatorStatus getStatus();
+    InitiatorServiceStatus getStatus();
 }
