@@ -21,7 +21,11 @@ public class FixControlController {
 
     @PostMapping("/fix/start")
     public FixStatusResponse start() {
-        fixControlService.start();
+        try {
+            fixControlService.start();
+        } catch (IllegalStateException ignored) {
+            // Return normalized status payload; service status exposes error state.
+        }
         return currentStatus();
     }
 
