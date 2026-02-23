@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -46,6 +47,13 @@ class FixInitiatorServiceTest {
         assertNull(status.details());
         assertEquals(1, status.sessions().size());
         assertEquals("FIX.4.4:YOUR_SENDER_COMP_ID->YOUR_TARGET_COMP_ID", status.sessions().get(0));
+        assertEquals("YOUR_SENDER_COMP_ID", status.config().senderCompId());
+        assertEquals("YOUR_TARGET_COMP_ID", status.config().targetCompId());
+        assertEquals("localhost", status.config().host());
+        assertEquals(9876, status.config().port());
+        assertEquals("Initiator started", status.diagnostics().lastEvent());
+        assertNull(status.diagnostics().lastError());
+        assertNotNull(status.diagnostics().lastUpdatedAt());
         verify(initiator).start();
     }
 
@@ -66,6 +74,10 @@ class FixInitiatorServiceTest {
         assertEquals("boom", status.details());
         assertEquals(1, status.sessions().size());
         assertEquals("FIX.4.4:YOUR_SENDER_COMP_ID->YOUR_TARGET_COMP_ID", status.sessions().get(0));
+        assertEquals("Start failed", status.diagnostics().lastEvent());
+        assertEquals("boom", status.diagnostics().lastError());
+        assertNotNull(status.diagnostics().lastUpdatedAt());
+        assertEquals("YOUR_SENDER_COMP_ID", status.config().senderCompId());
     }
 
     @Test
@@ -100,6 +112,8 @@ class FixInitiatorServiceTest {
         assertEquals(InitiatorStatus.STOPPED, status.status());
         assertNull(status.details());
         assertEquals(1, status.sessions().size());
+        assertEquals("Initiator stopped", status.diagnostics().lastEvent());
+        assertNull(status.diagnostics().lastError());
         verify(initiator, times(1)).stop();
     }
 
@@ -115,6 +129,13 @@ class FixInitiatorServiceTest {
         assertEquals(InitiatorStatus.STOPPED, status.status());
         assertNull(status.details());
         assertEquals(0, status.sessions().size());
+        assertEquals("", status.config().senderCompId());
+        assertEquals("", status.config().targetCompId());
+        assertEquals("", status.config().host());
+        assertNull(status.config().port());
+        assertEquals("Initiator stopped", status.diagnostics().lastEvent());
+        assertNull(status.diagnostics().lastError());
+        assertNotNull(status.diagnostics().lastUpdatedAt());
     }
 
     @Test
@@ -135,7 +156,29 @@ class FixInitiatorServiceTest {
         assertEquals(InitiatorStatus.RUNNING, status.status());
         assertNull(status.details());
         assertEquals(1, status.sessions().size());
+        assertEquals("Initiator started", status.diagnostics().lastEvent());
+        assertNull(status.diagnostics().lastError());
+        assertNotNull(status.diagnostics().lastUpdatedAt());
         verify(firstInitiator, times(1)).start();
         verify(secondInitiator, times(1)).start();
+    }
+
+    @Test
+    void initialStatusContainsDefaultConfigAndDiagnostics() {
+        QuickFixInitiatorFactory factory = mock(QuickFixInitiatorFactory.class);
+        FixInitiatorService service = new FixInitiatorService(factory);
+
+        InitiatorServiceStatus status = service.getStatus();
+
+        assertEquals(InitiatorStatus.STOPPED, status.status());
+        assertNull(status.details());
+        assertTrue(status.sessions().isEmpty());
+        assertEquals("", status.config().senderCompId());
+        assertEquals("", status.config().targetCompId());
+        assertEquals("", status.config().host());
+        assertNull(status.config().port());
+        assertEquals("Not started", status.diagnostics().lastEvent());
+        assertNull(status.diagnostics().lastError());
+        assertNotNull(status.diagnostics().lastUpdatedAt());
     }
 }
