@@ -12,8 +12,9 @@
 - Frontend: `127.0.0.1:5173`
 
 Override with:
-- `E2E_BACKEND_HOST`, `E2E_BACKEND_PORT`
-- `E2E_FRONTEND_HOST`, `E2E_FRONTEND_PORT`
+- `E2E_BACKEND_PORT`
+- `E2E_FRONTEND_PORT`
+- `E2E_HOST`
 - `PLAYWRIGHT_BASE_URL` (defaults to frontend URL)
 
 ## Backend Unit Tests
@@ -52,19 +53,23 @@ npx playwright install --with-deps chromium
 npm run e2e:local
 ```
 
-`npm run e2e:local` does all of the following:
-1. Verifies required ports are free
-2. Starts backend (`mvn -q -Dmaven.test.skip=true spring-boot:run`) and waits for `/health`
-3. Starts frontend (`vite --strictPort`) and waits for app URL
-4. Runs Playwright tests
-5. Tears down both servers, even on failure (`trap` cleanup)
+`npm run e2e:local` will:
+1. Pick free backend/frontend ports (unless explicitly provided)
+2. Start backend with `SERVER_PORT=<picked-port>` and wait for `/health`
+3. Start frontend on the picked port with `VITE_BACKEND_PORT=<backend-port>` and wait for app readiness
+4. Run Playwright headless
+5. Stop both servers automatically
 
-CI-optimized variant:
+Environment overrides:
+- `E2E_BACKEND_PORT`
+- `E2E_FRONTEND_PORT`
+- `PLAYWRIGHT_BASE_URL`
+- `VITE_BACKEND_PORT` (mainly for manual `npm run dev`)
+- `E2E_HOST` (default `127.0.0.1`)
+- `BACKEND_START_TIMEOUT` (default `120`)
+- `FRONTEND_START_TIMEOUT` (default `120`)
 
-```bash
-cd frontend
-npm run e2e:local:ci
-```
+CI uses the same script via `npm run e2e:local:ci` with single-worker Playwright output.
 
 ## Full Local Validation Sequence
 
@@ -77,14 +82,11 @@ cd ../frontend && npx playwright install --with-deps chromium && npm run e2e:loc
 ## Troubleshooting
 
 - `Timed out waiting for Backend .../health`:
-  - check backend logs in `${TMPDIR:-/tmp}/fix-client-backend-e2e.log`
-  - confirm Java is installed and `8080` is free
+  - check backend logs in `${TMPDIR:-/tmp}/fix-client-backend-e2e-*.log`
+  - confirm Java is installed
 - `Timed out waiting for Frontend ...:5173`:
-  - check frontend logs in `${TMPDIR:-/tmp}/fix-client-frontend-e2e.log`
-  - confirm `5173` is free
-- `Backend port 8080 is already in use` / `Frontend port 5173 is already in use`:
-  - stop the conflicting process, or pick alternate ports with `E2E_BACKEND_PORT` / `E2E_FRONTEND_PORT`
+  - check frontend logs in `${TMPDIR:-/tmp}/fix-client-frontend-e2e-*.log`
 - Browser install errors:
   - rerun `npx playwright install --with-deps chromium`
 - Need slower startup tolerance:
-  - run with `E2E_STARTUP_TIMEOUT_SECONDS=240 npm run e2e:local`
+  - run with `BACKEND_START_TIMEOUT=240 FRONTEND_START_TIMEOUT=240 npm run e2e:local`
