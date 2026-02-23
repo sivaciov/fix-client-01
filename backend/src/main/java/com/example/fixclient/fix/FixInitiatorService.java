@@ -34,14 +34,15 @@ public class FixInitiatorService {
         }
 
         status.set(new InitiatorServiceStatus(InitiatorStatus.STARTING, null, currentStatus.sessions()));
+        List<String> sessions = currentStatus.sessions();
         try {
             SessionSettings settings = loadSessionSettings();
-            List<String> sessions = extractSessions(settings);
+            sessions = extractSessions(settings);
             initiator = initiatorFactory.create(settings);
             initiator.start();
             status.set(new InitiatorServiceStatus(InitiatorStatus.RUNNING, null, sessions));
         } catch (IOException | ConfigError | RuntimeError ex) {
-            status.set(new InitiatorServiceStatus(InitiatorStatus.ERROR, ex.getMessage(), currentStatus.sessions()));
+            status.set(new InitiatorServiceStatus(InitiatorStatus.ERROR, ex.getMessage(), sessions));
             initiator = null;
             throw new IllegalStateException("Failed to start FIX initiator", ex);
         }

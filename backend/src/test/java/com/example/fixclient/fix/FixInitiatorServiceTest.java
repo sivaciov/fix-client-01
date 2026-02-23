@@ -64,7 +64,8 @@ class FixInitiatorServiceTest {
         InitiatorServiceStatus status = service.getStatus();
         assertEquals(InitiatorStatus.ERROR, status.status());
         assertEquals("boom", status.details());
-        assertEquals(0, status.sessions().size());
+        assertEquals(1, status.sessions().size());
+        assertEquals("FIX.4.4:YOUR_SENDER_COMP_ID->YOUR_TARGET_COMP_ID", status.sessions().get(0));
     }
 
     @Test
@@ -100,5 +101,41 @@ class FixInitiatorServiceTest {
         assertNull(status.details());
         assertEquals(1, status.sessions().size());
         verify(initiator, times(1)).stop();
+    }
+
+    @Test
+    void stopBeforeStartIsNoOpAndKeepsStoppedStatus() {
+        QuickFixInitiatorFactory factory = mock(QuickFixInitiatorFactory.class);
+        FixInitiatorService service = new FixInitiatorService(factory);
+
+        service.stop();
+        service.stop();
+
+        InitiatorServiceStatus status = service.getStatus();
+        assertEquals(InitiatorStatus.STOPPED, status.status());
+        assertNull(status.details());
+        assertEquals(0, status.sessions().size());
+    }
+
+    @Test
+    void startCanRecoverAfterErrorAndEventuallyRuns() throws Exception {
+        QuickFixInitiator firstInitiator = mock(QuickFixInitiator.class);
+        doThrow(new ConfigError("first boot failure")).when(firstInitiator).start();
+
+        QuickFixInitiator secondInitiator = mock(QuickFixInitiator.class);
+        QuickFixInitiatorFactory factory = mock(QuickFixInitiatorFactory.class);
+        when(factory.create(any(SessionSettings.class))).thenReturn(firstInitiator, secondInitiator);
+
+        FixInitiatorService service = new FixInitiatorService(factory);
+
+        assertThrows(IllegalStateException.class, service::start);
+        service.start();
+
+        InitiatorServiceStatus status = service.getStatus();
+        assertEquals(InitiatorStatus.RUNNING, status.status());
+        assertNull(status.details());
+        assertEquals(1, status.sessions().size());
+        verify(firstInitiator, times(1)).start();
+        verify(secondInitiator, times(1)).start();
     }
 }
