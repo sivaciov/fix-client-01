@@ -10,7 +10,7 @@ function App() {
 
   const checkHealth = async () => {
     try {
-      const response = await fetch('http://localhost:8080/health')
+      const response = await fetch('/health')
 
       if (!response.ok) {
         setMessage(
