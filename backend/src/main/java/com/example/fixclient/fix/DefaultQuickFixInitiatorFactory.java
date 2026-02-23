@@ -1,7 +1,6 @@
 package com.example.fixclient.fix;
 
 import org.springframework.stereotype.Component;
-import quickfix.ApplicationAdapter;
 import quickfix.ConfigError;
 import quickfix.DefaultMessageFactory;
 import quickfix.FileLogFactory;
@@ -12,10 +11,16 @@ import quickfix.SocketInitiator;
 @Component
 public class DefaultQuickFixInitiatorFactory implements QuickFixInitiatorFactory {
 
+    private final QuickFixExecutionApplication application;
+
+    public DefaultQuickFixInitiatorFactory(QuickFixExecutionApplication application) {
+        this.application = application;
+    }
+
     @Override
     public QuickFixInitiator create(SessionSettings settings) throws ConfigError {
         SocketInitiator socketInitiator = new SocketInitiator(
-                new ApplicationAdapter(),
+                application,
                 new FileStoreFactory(settings),
                 settings,
                 new FileLogFactory(settings),
