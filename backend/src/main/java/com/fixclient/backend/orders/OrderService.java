@@ -3,11 +3,15 @@ package com.fixclient.backend.orders;
 import com.example.fixclient.fix.OrderSendResult;
 import com.example.fixclient.fix.OrderSender;
 import com.example.fixclient.fix.OrderSubmission;
+import com.fixclient.backend.execution.ExecutionReportEvent;
+import com.fixclient.backend.execution.ExecutionToOrderStatusMapper;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -16,21 +20,21 @@ public class OrderService {
     private final OrderSender orderSender;
     private final OrderStore orderStore;
 
-    public OrderService(OrderSender orderSender, OrderStore orderStore) {
+    public OrderService(@Lazy OrderSender orderSender, OrderStore orderStore) {
         this.orderSender = orderSender;
         this.orderStore = orderStore;
     }
 
-    public CreateOrderResponse createOrder(CreateOrderRequest request) {
+    public OrderRecord createOrder(CreateOrderRequest request) {
         validate(request);
 
         UUID orderId = UUID.randomUUID();
-        Instant createdAt = Instant.now();
+        String clOrdId = orderId.toString();
         BigDecimal normalizedPrice = request.type() == OrderType.MARKET ? null : request.price();
 
         OrderSubmission submission = new OrderSubmission(
                 orderId,
-                createdAt,
+                Instant.now(),
                 request.symbol().trim().toUpperCase(Locale.ROOT),
                 request.side(),
                 request.qty(),
@@ -39,10 +43,11 @@ public class OrderService {
                 request.tif());
 
         OrderSendResult sendResult = orderSender.send(submission);
-        OrderStatus orderStatus = sendResult.accepted() ? OrderStatus.ACCEPTED : OrderStatus.REJECTED;
+        OrderStatus initialStatus = sendResult.accepted() ? OrderStatus.ACCEPTED : OrderStatus.REJECTED;
 
         OrderRecord record = new OrderRecord(
                 submission.orderId(),
+                clOrdId,
                 submission.createdAt(),
                 submission.symbol(),
                 submission.side(),
@@ -50,15 +55,64 @@ public class OrderService {
                 submission.type(),
                 submission.price(),
                 submission.tif(),
-                orderStatus,
+                initialStatus,
                 sendResult.message());
-        orderStore.add(record);
 
-        return new CreateOrderResponse(record.orderId(), orderStatus, record.message());
+        orderStore.add(record);
+        return record;
     }
 
     public List<OrderRecord> listOrders() {
         return orderStore.listRecent();
+    }
+
+    public OrderRecord getOrderById(String orderId) {
+        return orderStore.findByOrderId(parseUuid(orderId))
+                .orElseThrow(() -> new OrderNotFoundException("Order not found: " + orderId));
+    }
+
+    public void applyExecutionReport(ExecutionReportEvent event) {
+        Optional<OrderRecord> order = findByIdentifiers(event.orderId(), event.clOrdId());
+        if (order.isEmpty()) {
+            return;
+        }
+
+        OrderStatus mappedStatus = ExecutionToOrderStatusMapper.map(event.execType(), event.ordStatus());
+        if (mappedStatus == null && event.text() == null) {
+            return;
+        }
+
+        OrderRecord current = order.get();
+        OrderRecord updated = current.withStatusAndMessage(
+                mappedStatus == null ? current.status() : mappedStatus,
+                event.text());
+
+        orderStore.update(updated);
+    }
+
+    private Optional<OrderRecord> findByIdentifiers(String orderId, String clOrdId) {
+        if (orderId != null && !orderId.isBlank()) {
+            try {
+                Optional<OrderRecord> byOrderId = orderStore.findByOrderId(parseUuid(orderId));
+                if (byOrderId.isPresent()) {
+                    return byOrderId;
+                }
+            } catch (IllegalArgumentException ignored) {
+                // Fall back to clOrdId lookup for non-UUID orderId values.
+            }
+        }
+        if (clOrdId != null && !clOrdId.isBlank()) {
+            return orderStore.findByClOrdId(clOrdId);
+        }
+        return Optional.empty();
+    }
+
+    private UUID parseUuid(String value) {
+        try {
+            return UUID.fromString(value);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("orderId must be a valid UUID");
+        }
     }
 
     private void validate(CreateOrderRequest request) {
