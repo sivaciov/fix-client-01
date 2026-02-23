@@ -47,6 +47,37 @@ class MarketDataServiceTest {
         assertStatus(HttpStatus.NOT_FOUND, () -> service.quote("UNKNOWN"));
     }
 
+    @Test
+    void partialUpdateRejectsLowerAskThanExistingBid() {
+        MarketDataService service = new MarketDataService(new MarketDataStore(), Clock.systemUTC());
+        service.simulate(new SimulateQuoteRequest("AAPL", BigDecimal.valueOf(100), null, null));
+
+        assertStatus(HttpStatus.BAD_REQUEST,
+                () -> service.simulate(new SimulateQuoteRequest("AAPL", null, BigDecimal.valueOf(99), null)));
+    }
+
+    @Test
+    void partialUpdateRejectsHigherBidThanExistingAsk() {
+        MarketDataService service = new MarketDataService(new MarketDataStore(), Clock.systemUTC());
+        service.simulate(new SimulateQuoteRequest("MSFT", null, BigDecimal.valueOf(100), null));
+
+        assertStatus(HttpStatus.BAD_REQUEST,
+                () -> service.simulate(new SimulateQuoteRequest("MSFT", BigDecimal.valueOf(101), null, null)));
+    }
+
+    @Test
+    void partialUpdateAcceptsWhenMergedQuoteRemainsValid() {
+        MarketDataService service = new MarketDataService(new MarketDataStore(), Clock.systemUTC());
+        service.simulate(new SimulateQuoteRequest("TSLA", BigDecimal.valueOf(100), BigDecimal.valueOf(101), null));
+
+        MarketQuote updatedAsk = service.simulate(new SimulateQuoteRequest("TSLA", null, BigDecimal.valueOf(102), null));
+        MarketQuote updatedBid = service.simulate(new SimulateQuoteRequest("TSLA", BigDecimal.valueOf(101), null, null));
+
+        assertEquals("101", updatedBid.bid().toPlainString());
+        assertEquals("102", updatedBid.ask().toPlainString());
+        assertEquals("102", updatedAsk.ask().toPlainString());
+    }
+
     private void assertStatus(HttpStatus expected, Runnable call) {
         ResponseStatusException ex = assertThrows(ResponseStatusException.class, call::run);
         assertEquals(expected, ex.getStatusCode());
