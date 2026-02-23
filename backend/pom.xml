@@ -18,6 +18,7 @@
 
     <properties>
         <java.version>17</java.version>
+        <quickfixj.version>2.3.2</quickfixj.version>
     </properties>
 
     <dependencies>
@@ -25,6 +26,13 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>org.quickfixj</groupId>
+            <artifactId>quickfixj-core</artifactId>
+            <version>${quickfixj.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
