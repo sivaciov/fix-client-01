@@ -2,9 +2,12 @@ package com.example.fixclient.fix;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -29,16 +32,20 @@ class FixInitiatorServiceTest {
     }
 
     @Test
-    void startSetsRunningWhenInitiatorStarts() throws Exception {
+    void startSetsRunningWhenInitiatorStartsAndReportsStatusDetails() throws Exception {
         QuickFixInitiator initiator = mock(QuickFixInitiator.class);
         QuickFixInitiatorFactory factory = mock(QuickFixInitiatorFactory.class);
-        when(factory.create(org.mockito.ArgumentMatchers.any(SessionSettings.class))).thenReturn(initiator);
+        when(factory.create(any(SessionSettings.class))).thenReturn(initiator);
 
         FixInitiatorService service = new FixInitiatorService(factory);
 
         service.start();
 
-        assertEquals(InitiatorStatus.RUNNING, service.getStatus());
+        InitiatorServiceStatus status = service.getStatus();
+        assertEquals(InitiatorStatus.RUNNING, status.status());
+        assertNull(status.details());
+        assertEquals(1, status.sessions().size());
+        assertEquals("FIX.4.4:YOUR_SENDER_COMP_ID->YOUR_TARGET_COMP_ID", status.sessions().get(0));
         verify(initiator).start();
     }
 
@@ -48,26 +55,50 @@ class FixInitiatorServiceTest {
         doThrow(new ConfigError("boom")).when(initiator).start();
 
         QuickFixInitiatorFactory factory = mock(QuickFixInitiatorFactory.class);
-        when(factory.create(org.mockito.ArgumentMatchers.any(SessionSettings.class))).thenReturn(initiator);
+        when(factory.create(any(SessionSettings.class))).thenReturn(initiator);
 
         FixInitiatorService service = new FixInitiatorService(factory);
 
         assertThrows(IllegalStateException.class, service::start);
-        assertEquals(InitiatorStatus.ERROR, service.getStatus());
+
+        InitiatorServiceStatus status = service.getStatus();
+        assertEquals(InitiatorStatus.ERROR, status.status());
+        assertEquals("boom", status.details());
+        assertEquals(0, status.sessions().size());
     }
 
     @Test
-    void stopTransitionsToStopped() throws Exception {
+    void startIsIdempotentWhenAlreadyRunning() throws Exception {
         QuickFixInitiator initiator = mock(QuickFixInitiator.class);
         QuickFixInitiatorFactory factory = mock(QuickFixInitiatorFactory.class);
-        when(factory.create(org.mockito.ArgumentMatchers.any(SessionSettings.class))).thenReturn(initiator);
+        when(factory.create(any(SessionSettings.class))).thenReturn(initiator);
+
+        FixInitiatorService service = new FixInitiatorService(factory);
+
+        service.start();
+        service.start();
+
+        assertEquals(InitiatorStatus.RUNNING, service.getStatus().status());
+        verify(initiator, times(1)).start();
+        verify(factory, times(1)).create(any(SessionSettings.class));
+    }
+
+    @Test
+    void stopTransitionsToStoppedAndIsIdempotent() throws Exception {
+        QuickFixInitiator initiator = mock(QuickFixInitiator.class);
+        QuickFixInitiatorFactory factory = mock(QuickFixInitiatorFactory.class);
+        when(factory.create(any(SessionSettings.class))).thenReturn(initiator);
 
         FixInitiatorService service = new FixInitiatorService(factory);
         service.start();
 
         service.stop();
+        service.stop();
 
-        assertEquals(InitiatorStatus.STOPPED, service.getStatus());
-        verify(initiator).stop();
+        InitiatorServiceStatus status = service.getStatus();
+        assertEquals(InitiatorStatus.STOPPED, status.status());
+        assertNull(status.details());
+        assertEquals(1, status.sessions().size());
+        verify(initiator, times(1)).stop();
     }
 }
