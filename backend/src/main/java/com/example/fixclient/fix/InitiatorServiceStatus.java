@@ -13,6 +13,15 @@ public record InitiatorServiceStatus(
         sessions = List.copyOf(sessions);
     }
 
+    public InitiatorServiceStatus(InitiatorStatus status, String details, List<String> sessions) {
+        this(
+                status,
+                details,
+                sessions,
+                FixSessionConfig.empty(),
+                new InitiatorDiagnostics(status.name(), details, java.time.Instant.now()));
+    }
+
     public static InitiatorServiceStatus initial() {
         return new InitiatorServiceStatus(
                 InitiatorStatus.STOPPED,
