@@ -24,3 +24,21 @@ button {
   margin-top: 1rem;
   padding: 0.5rem 1rem;
 }
+
+.fix-controls {
+  margin-top: 2rem;
+}
+
+.fix-buttons {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.fix-buttons button {
+  margin-top: 0;
+}
+
+.error-message {
+  color: #b91c1c;
+}
