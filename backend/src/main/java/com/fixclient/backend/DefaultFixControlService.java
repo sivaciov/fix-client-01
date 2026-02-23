@@ -1,7 +1,7 @@
 package com.fixclient.backend;
 
 import com.example.fixclient.fix.FixInitiatorService;
-import com.example.fixclient.fix.InitiatorStatus;
+import com.example.fixclient.fix.InitiatorServiceStatus;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -24,7 +24,7 @@ public class DefaultFixControlService implements FixControlService {
     }
 
     @Override
-    public InitiatorStatus getStatus() {
-        return fixInitiatorService.getStatus().status();
+    public InitiatorServiceStatus getStatus() {
+        return fixInitiatorService.getStatus();
     }
 }

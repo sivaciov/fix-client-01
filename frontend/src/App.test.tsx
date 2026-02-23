@@ -20,7 +20,22 @@ describe('App', () => {
       if (input === '/fix/status' && !init?.method) {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ status: 'CONNECTED' }),
+          json: async () => ({
+            status: 'RUNNING',
+            details: '',
+            sessions: ['FIX.4.4:YOUR_SENDER_COMP_ID->YOUR_TARGET_COMP_ID'],
+            config: {
+              senderCompId: 'YOUR_SENDER_COMP_ID',
+              targetCompId: 'YOUR_TARGET_COMP_ID',
+              host: 'localhost',
+              port: 9876,
+            },
+            diagnostics: {
+              lastEvent: 'Initiator started',
+              lastError: '',
+              lastUpdatedAt: '2026-02-23T00:00:00Z',
+            },
+          }),
         } as Response)
       }
 
@@ -32,7 +47,13 @@ describe('App', () => {
     render(<App />)
 
     expect(await screen.findByText('Backend: ok')).toBeInTheDocument()
-    expect(await screen.findByText('CONNECTED')).toBeInTheDocument()
+    expect(await screen.findByText('FIX Session')).toBeInTheDocument()
+    expect(await screen.findByText('RUNNING')).toBeInTheDocument()
+    expect(await screen.findByText('Session: YOUR_SENDER_COMP_ID → YOUR_TARGET_COMP_ID')).toBeInTheDocument()
+    expect(await screen.findByText('Endpoint: localhost:9876')).toBeInTheDocument()
+    expect(await screen.findByText('Last event: Initiator started')).toBeInTheDocument()
+    expect(await screen.findByText('Last error: --')).toBeInTheDocument()
+    expect(await screen.findByText('Last updated: 2026-02-23T00:00:00Z')).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith('/fix/status')
   })
 
@@ -48,7 +69,13 @@ describe('App', () => {
       if (input === '/fix/status') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ status: 'DISCONNECTED' }),
+          json: async () => ({
+            status: 'STOPPED',
+            details: '',
+            sessions: [],
+            config: {},
+            diagnostics: {},
+          }),
         } as Response)
       }
 
@@ -88,7 +115,13 @@ describe('App', () => {
       if (input === '/fix/status') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ status: 'RUNNING' }),
+          json: async () => ({
+            status: 'RUNNING',
+            details: '',
+            sessions: [],
+            config: {},
+            diagnostics: {},
+          }),
         } as Response)
       }
 
