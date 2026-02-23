@@ -17,10 +17,12 @@ import quickfix.field.MsgType;
 
 class QuickFixExecutionApplicationTest {
 
+    private static final OrderSender ACCEPTING_SENDER = submission -> new OrderSendResult(true, "accepted");
+
     @Test
     void forwardsExecutionReportMessageToIngestionService() throws Exception {
         ExecutionReportStateStore stateStore = new ExecutionReportStateStore();
-        OrderService orderService = new OrderService(new InMemoryOrderStore());
+        OrderService orderService = new OrderService(ACCEPTING_SENDER, new InMemoryOrderStore());
         ExecutionReportIngestionService service =
                 new ExecutionReportIngestionService(new ExecutionReportMapper(), stateStore, orderService);
         QuickFixExecutionApplication app = new QuickFixExecutionApplication(service);
@@ -38,7 +40,7 @@ class QuickFixExecutionApplicationTest {
     @Test
     void ignoresNonExecutionReportMessages() throws Exception {
         ExecutionReportStateStore stateStore = new ExecutionReportStateStore();
-        OrderService orderService = new OrderService(new InMemoryOrderStore());
+        OrderService orderService = new OrderService(ACCEPTING_SENDER, new InMemoryOrderStore());
         ExecutionReportIngestionService service =
                 new ExecutionReportIngestionService(new ExecutionReportMapper(), stateStore, orderService);
         QuickFixExecutionApplication app = new QuickFixExecutionApplication(service);

@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.example.fixclient.fix.OrderSendResult;
+import com.example.fixclient.fix.OrderSender;
 import com.fixclient.backend.execution.ExecutionReportEvent;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -15,7 +17,8 @@ class OrderServiceTest {
 
     @Test
     void limitRequiresPrice() {
-        OrderService service = new OrderService(new InMemoryOrderStore());
+        OrderSender sender = submission -> new OrderSendResult(true, "accepted");
+        OrderService service = new OrderService(sender, new InMemoryOrderStore());
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
                 service.createOrder(new CreateOrderRequest("AAPL", OrderSide.BUY, 100, OrderType.LIMIT, null, TimeInForce.DAY)));
@@ -25,7 +28,8 @@ class OrderServiceTest {
 
     @Test
     void marketIgnoresPriceAndPersistsNormalizedOrder() {
-        OrderService service = new OrderService(new InMemoryOrderStore());
+        OrderSender sender = submission -> new OrderSendResult(true, "accepted");
+        OrderService service = new OrderService(sender, new InMemoryOrderStore());
 
         OrderRecord created = service.createOrder(
                 new CreateOrderRequest("aapl", OrderSide.BUY, 100, OrderType.MARKET, new BigDecimal("123.45"), TimeInForce.DAY));
@@ -34,14 +38,15 @@ class OrderServiceTest {
         assertEquals(created.orderId().toString(), created.clOrdId());
         assertEquals("AAPL", created.symbol());
         assertNull(created.price());
-        assertEquals(OrderStatus.NEW, created.status());
+        assertEquals(OrderStatus.ACCEPTED, created.status());
         assertEquals(1, service.listOrders().size());
         assertEquals(created.orderId(), service.listOrders().get(0).orderId());
     }
 
     @Test
     void applyExecutionReportUpdatesOrderStatusAndMessage() {
-        OrderService service = new OrderService(new InMemoryOrderStore());
+        OrderSender sender = submission -> new OrderSendResult(true, "accepted");
+        OrderService service = new OrderService(sender, new InMemoryOrderStore());
         OrderRecord created = service.createOrder(
                 new CreateOrderRequest("MSFT", OrderSide.SELL, 10, OrderType.LIMIT, new BigDecimal("411.25"), TimeInForce.GTC));
 
@@ -66,7 +71,8 @@ class OrderServiceTest {
 
     @Test
     void getOrderRejectsInvalidUuid() {
-        OrderService service = new OrderService(new InMemoryOrderStore());
+        OrderSender sender = submission -> new OrderSendResult(true, "accepted");
+        OrderService service = new OrderService(sender, new InMemoryOrderStore());
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.getOrderById("not-a-uuid"));
 
@@ -75,7 +81,8 @@ class OrderServiceTest {
 
     @Test
     void getOrderReturnsNotFoundForMissingId() {
-        OrderService service = new OrderService(new InMemoryOrderStore());
+        OrderSender sender = submission -> new OrderSendResult(true, "accepted");
+        OrderService service = new OrderService(sender, new InMemoryOrderStore());
         UUID missing = UUID.fromString("00000000-0000-0000-0000-000000000042");
 
         OrderNotFoundException ex = assertThrows(OrderNotFoundException.class, () -> service.getOrderById(missing.toString()));

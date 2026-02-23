@@ -1,20 +1,27 @@
 package com.fixclient.backend.orders;
 
+import com.example.fixclient.fix.OrderSendResult;
+import com.example.fixclient.fix.OrderSender;
+import com.example.fixclient.fix.OrderSubmission;
 import com.fixclient.backend.execution.ExecutionReportEvent;
 import com.fixclient.backend.execution.ExecutionToOrderStatusMapper;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 @Service
 public class OrderService {
 
+    private final OrderSender orderSender;
     private final OrderStore orderStore;
 
-    public OrderService(OrderStore orderStore) {
+    public OrderService(@Lazy OrderSender orderSender, OrderStore orderStore) {
+        this.orderSender = orderSender;
         this.orderStore = orderStore;
     }
 
@@ -23,19 +30,33 @@ public class OrderService {
 
         UUID orderId = UUID.randomUUID();
         String clOrdId = orderId.toString();
+        BigDecimal normalizedPrice = request.type() == OrderType.MARKET ? null : request.price();
 
-        OrderRecord record = new OrderRecord(
+        OrderSubmission submission = new OrderSubmission(
                 orderId,
-                clOrdId,
                 Instant.now(),
                 request.symbol().trim().toUpperCase(Locale.ROOT),
                 request.side(),
                 request.qty(),
                 request.type(),
-                request.type() == OrderType.MARKET ? null : request.price(),
-                request.tif(),
-                OrderStatus.NEW,
-                "Order created");
+                normalizedPrice,
+                request.tif());
+
+        OrderSendResult sendResult = orderSender.send(submission);
+        OrderStatus initialStatus = sendResult.accepted() ? OrderStatus.ACCEPTED : OrderStatus.REJECTED;
+
+        OrderRecord record = new OrderRecord(
+                submission.orderId(),
+                clOrdId,
+                submission.createdAt(),
+                submission.symbol(),
+                submission.side(),
+                submission.qty(),
+                submission.type(),
+                submission.price(),
+                submission.tif(),
+                initialStatus,
+                sendResult.message());
 
         orderStore.add(record);
         return record;

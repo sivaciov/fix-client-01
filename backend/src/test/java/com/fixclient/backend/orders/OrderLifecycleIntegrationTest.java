@@ -42,7 +42,7 @@ class OrderLifecycleIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.orderId").isNotEmpty())
                 .andExpect(jsonPath("$.clOrdId").isNotEmpty())
-                .andExpect(jsonPath("$.status").value("NEW"))
+                .andExpect(jsonPath("$.status").value("REJECTED"))
                 .andReturn();
 
         String body = created.getResponse().getContentAsString();
