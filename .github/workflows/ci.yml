@@ -34,7 +34,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
 
       - name: Set up Java 17 fallback
         if: ${{ steps.setup_java_21.outcome == 'failure' }}
@@ -42,7 +41,24 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Enable Maven cache (when backend pom exists)
+        if: ${{ hashFiles('backend/pom.xml') != '' && steps.setup_java_21.outcome != 'failure' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
           cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      - name: Enable Maven cache for Java 17 fallback (when backend pom exists)
+        if: ${{ hashFiles('backend/pom.xml') != '' && steps.setup_java_21.outcome == 'failure' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
 
       - name: Backend tests
         if: ${{ hashFiles('backend/**') != '' }}
