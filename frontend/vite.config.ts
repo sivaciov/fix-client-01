@@ -8,6 +8,7 @@ export default defineConfig({
     proxy: {
       '/health': 'http://localhost:8080',
       '/fix': 'http://localhost:8080',
+      '/orders': 'http://localhost:8080',
     },
   },
 })

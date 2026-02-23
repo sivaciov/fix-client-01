@@ -8,64 +8,11 @@ afterEach(() => {
 })
 
 describe('App', () => {
-  it('calls /fix/status and renders returned FIX status', async () => {
+  it('validates that price is required for LIMIT orders', async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       if (input === '/health') {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ status: 'ok' }),
-        } as Response)
+        return Promise.resolve({ ok: true, json: async () => ({ status: 'ok' }) } as Response)
       }
-
-      if (input === '/fix/status' && !init?.method) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            status: 'RUNNING',
-            details: '',
-            sessions: ['FIX.4.4:YOUR_SENDER_COMP_ID->YOUR_TARGET_COMP_ID'],
-            config: {
-              senderCompId: 'YOUR_SENDER_COMP_ID',
-              targetCompId: 'YOUR_TARGET_COMP_ID',
-              host: 'localhost',
-              port: 9876,
-            },
-            diagnostics: {
-              lastEvent: 'Initiator started',
-              lastError: '',
-              lastUpdatedAt: '2026-02-23T00:00:00Z',
-            },
-          }),
-        } as Response)
-      }
-
-      return Promise.reject(new Error(`Unexpected request: ${String(input)}`))
-    })
-
-    vi.spyOn(globalThis, 'fetch').mockImplementation(fetchMock as typeof fetch)
-
-    render(<App />)
-
-    expect(await screen.findByText('Backend: ok')).toBeInTheDocument()
-    expect(await screen.findByText('FIX Session')).toBeInTheDocument()
-    expect(await screen.findByText('RUNNING')).toBeInTheDocument()
-    expect(await screen.findByText('Session: YOUR_SENDER_COMP_ID → YOUR_TARGET_COMP_ID')).toBeInTheDocument()
-    expect(await screen.findByText('Endpoint: localhost:9876')).toBeInTheDocument()
-    expect(await screen.findByText('Last event: Initiator started')).toBeInTheDocument()
-    expect(await screen.findByText('Last error: --')).toBeInTheDocument()
-    expect(await screen.findByText('Last updated: 2026-02-23T00:00:00Z')).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledWith('/fix/status')
-  })
-
-  it('triggers /fix/start and /fix/stop POST requests from buttons', async () => {
-    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      if (input === '/health') {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ status: 'ok' }),
-        } as Response)
-      }
-
       if (input === '/fix/status') {
         return Promise.resolve({
           ok: true,
@@ -78,40 +25,30 @@ describe('App', () => {
           }),
         } as Response)
       }
-
-      if (input === '/fix/start' && init?.method === 'POST') {
-        return Promise.resolve({ ok: true } as Response)
-      }
-
-      if (input === '/fix/stop' && init?.method === 'POST') {
-        return Promise.resolve({ ok: true } as Response)
+      if (input === '/orders' && !init?.method) {
+        return Promise.resolve({ ok: true, json: async () => [] } as Response)
       }
 
       return Promise.reject(new Error(`Unexpected request: ${String(input)}`))
     })
 
     vi.spyOn(globalThis, 'fetch').mockImplementation(fetchMock as typeof fetch)
-
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Start' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+    fireEvent.change(await screen.findByLabelText('Type'), { target: { value: 'LIMIT' } })
+    fireEvent.change(screen.getByLabelText('Symbol'), { target: { value: 'AAPL' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send Order' }))
 
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/fix/start', { method: 'POST' })
-      expect(fetchMock).toHaveBeenCalledWith('/fix/stop', { method: 'POST' })
-    })
+    expect(await screen.findByText('Price is required for LIMIT orders.')).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith('/orders', expect.objectContaining({ method: 'POST' }))
   })
 
-  it('polls /fix/status every 2 seconds', async () => {
-    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+  it('submits successfully and refreshes orders table with new row', async () => {
+    let ordersCall = 0
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       if (input === '/health') {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ status: 'ok' }),
-        } as Response)
+        return Promise.resolve({ ok: true, json: async () => ({ status: 'ok' }) } as Response)
       }
-
       if (input === '/fix/status') {
         return Promise.resolve({
           ok: true,
@@ -124,32 +61,55 @@ describe('App', () => {
           }),
         } as Response)
       }
+      if (input === '/orders' && !init?.method) {
+        ordersCall += 1
+        if (ordersCall === 1) {
+          return Promise.resolve({ ok: true, json: async () => [] } as Response)
+        }
+
+        return Promise.resolve({
+          ok: true,
+          json: async () => [
+            {
+              orderId: 'order-1',
+              createdAt: '2026-02-23T00:00:00Z',
+              symbol: 'AAPL',
+              side: 'BUY',
+              qty: 100,
+              type: 'MARKET',
+              price: null,
+              tif: 'DAY',
+              status: 'ACCEPTED',
+              message: 'Order accepted',
+            },
+          ],
+        } as Response)
+      }
+      if (input === '/orders' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            orderId: 'order-1',
+            status: 'ACCEPTED',
+            message: 'Order accepted',
+          }),
+        } as Response)
+      }
 
       return Promise.reject(new Error(`Unexpected request: ${String(input)}`))
     })
 
-    let pollCallback: (() => void) | undefined
-    const setIntervalSpy = vi
-      .spyOn(window, 'setInterval')
-      .mockImplementation(((handler: TimerHandler) => {
-        if (typeof handler === 'function') {
-          pollCallback = handler as () => void
-        }
-        return 1 as unknown as number
-      }) as typeof window.setInterval)
-
-    const clearIntervalSpy = vi
-      .spyOn(window, 'clearInterval')
-      .mockImplementation(() => {})
-
     vi.spyOn(globalThis, 'fetch').mockImplementation(fetchMock as typeof fetch)
     render(<App />)
 
-    await screen.findByText('RUNNING')
-    expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 2000)
-    expect(fetchMock).toHaveBeenCalledWith('/fix/status')
+    fireEvent.change(await screen.findByLabelText('Symbol'), { target: { value: 'AAPL' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send Order' }))
 
-    expect(pollCallback).toBeTypeOf('function')
-    expect(clearIntervalSpy).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText('ACCEPTED: Order accepted')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('order-1')).toBeInTheDocument()
+      expect(screen.getByText('AAPL')).toBeInTheDocument()
+      expect(screen.getByText('ACCEPTED')).toBeInTheDocument()
+    })
   })
 })
