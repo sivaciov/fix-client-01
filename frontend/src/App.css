@@ -18,6 +18,7 @@ body {
 .app {
   text-align: center;
   padding: 2rem;
+  max-width: 680px;
 }
 
 button {
@@ -27,12 +28,55 @@ button {
 
 .fix-controls {
   margin-top: 2rem;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  text-align: left;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.status-running {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-starting {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.status-stopped {
+  background: #e5e7eb;
+  color: #374151;
 }
 
 .fix-buttons {
   display: flex;
   gap: 0.75rem;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .fix-buttons button {

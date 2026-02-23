@@ -5,13 +5,30 @@ type HealthResponse = {
   status?: string
 }
 
+type FixStatusConfig = {
+  senderCompId?: string
+  targetCompId?: string
+  host?: string
+  port?: number | null
+}
+
+type FixStatusDiagnostics = {
+  lastEvent?: string
+  lastError?: string
+  lastUpdatedAt?: string
+}
+
 type FixStatusResponse = {
   status?: string
+  details?: string
+  sessions?: string[]
+  config?: FixStatusConfig
+  diagnostics?: FixStatusDiagnostics
 }
 
 function App() {
   const [message, setMessage] = useState('Checking backend health...')
-  const [fixStatus, setFixStatus] = useState('Loading...')
+  const [fixStatus, setFixStatus] = useState<FixStatusResponse | null>(null)
   const [fixError, setFixError] = useState<string | null>(null)
 
   const checkHealth = async () => {
@@ -54,7 +71,7 @@ function App() {
       }
 
       const data = (await response.json()) as FixStatusResponse
-      setFixStatus(data.status ?? 'Unknown')
+      setFixStatus(data)
       setFixError(null)
     } catch {
       setFixError('Unable to load FIX status right now. Please try again.')
@@ -92,6 +109,18 @@ function App() {
     }
   }, [])
 
+  const config = fixStatus?.config
+  const diagnostics = fixStatus?.diagnostics
+  const sender = config?.senderCompId || '--'
+  const target = config?.targetCompId || '--'
+  const host = config?.host || '--'
+  const port = config?.port ?? '--'
+  const details = fixStatus?.details || '--'
+  const currentStatus = fixStatus?.status || 'Loading...'
+  const lastEvent = diagnostics?.lastEvent || '--'
+  const lastError = diagnostics?.lastError || '--'
+  const lastUpdatedAt = diagnostics?.lastUpdatedAt || '--'
+
   return (
     <main className="app">
       <h1>Health Check</h1>
@@ -101,10 +130,16 @@ function App() {
       </button>
 
       <section className="fix-controls" aria-label="FIX controls">
-        <h2>FIX</h2>
-        <p>
-          Status: <strong>{fixStatus}</strong>
+        <h2>FIX Session</h2>
+        <p className="status-row">
+          Status: <strong className={`status-badge status-${currentStatus.toLowerCase()}`}>{currentStatus}</strong>
         </p>
+        <p>Session: {sender} → {target}</p>
+        <p>Endpoint: {host}:{port}</p>
+        <p>Details: {details}</p>
+        <p>Last event: {lastEvent}</p>
+        <p>Last error: {lastError}</p>
+        <p>Last updated: {lastUpdatedAt}</p>
         {fixError ? <p className="error-message">{fixError}</p> : null}
         <div className="fix-buttons">
           <button type="button" onClick={() => void triggerFixAction('/fix/start')}>
