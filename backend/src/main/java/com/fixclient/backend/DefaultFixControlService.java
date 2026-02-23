@@ -25,6 +25,6 @@ public class DefaultFixControlService implements FixControlService {
 
     @Override
     public InitiatorStatus getStatus() {
-        return fixInitiatorService.getStatus();
+        return InitiatorStatus.valueOf(fixInitiatorService.getStatus().name());
     }
 }
