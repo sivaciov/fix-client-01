@@ -1,7 +1,6 @@
 package com.fixclient.backend;
 
 import com.example.fixclient.fix.InitiatorServiceStatus;
-import java.time.Instant;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -43,11 +42,15 @@ public class FixControlController {
                 status.status().name(),
                 status.details() == null ? "" : status.details(),
                 status.sessions(),
-                new FixConfigResponse("", "", "", null),
+                new FixConfigResponse(
+                        status.config().senderCompId(),
+                        status.config().targetCompId(),
+                        status.config().host(),
+                        status.config().port()),
                 new FixDiagnosticsResponse(
-                        status.status().name(),
-                        status.details() == null ? "" : status.details(),
-                        Instant.now().toString()));
+                        status.diagnostics().lastEvent(),
+                        status.diagnostics().lastError() == null ? "" : status.diagnostics().lastError(),
+                        status.diagnostics().lastUpdatedAt().toString()));
     }
 
     public record FixStatusResponse(

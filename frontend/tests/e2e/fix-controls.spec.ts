@@ -8,11 +8,15 @@ test('Health and FIX controls flow works', async ({ page }) => {
 
   const fixSection = page.getByRole('region', { name: 'FIX controls' })
   await expect(fixSection).toBeVisible()
+  await expect(fixSection.getByRole('heading', { name: 'FIX Session' })).toBeVisible()
 
   const startButton = fixSection.getByRole('button', { name: 'Start' })
   const stopButton = fixSection.getByRole('button', { name: 'Stop' })
   await expect(startButton).toBeVisible()
   await expect(stopButton).toBeVisible()
+  await expect(fixSection.getByText(/Last event:/)).toBeVisible()
+  await expect(fixSection.getByText(/Last error:/)).toBeVisible()
+  await expect(fixSection.getByText(/Last updated:/)).toBeVisible()
 
   const startResponsePromise = page.waitForResponse(
     (response) =>

@@ -9,8 +9,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.fixclient.fix.FixSessionConfig;
+import com.example.fixclient.fix.InitiatorDiagnostics;
 import com.example.fixclient.fix.InitiatorServiceStatus;
 import com.example.fixclient.fix.InitiatorStatus;
+import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,11 +40,11 @@ class FixControlControllerTest {
                 .andExpect(jsonPath("$.details").value(""))
                 .andExpect(jsonPath("$.sessions").isArray())
                 .andExpect(jsonPath("$.sessions").isEmpty())
-                .andExpect(jsonPath("$.config.senderCompId").value(""))
-                .andExpect(jsonPath("$.config.targetCompId").value(""))
-                .andExpect(jsonPath("$.config.host").value(""))
-                .andExpect(jsonPath("$.config.port").isEmpty())
-                .andExpect(jsonPath("$.diagnostics.lastEvent").value("STOPPED"))
+                .andExpect(jsonPath("$.config.senderCompId").value("SENDER"))
+                .andExpect(jsonPath("$.config.targetCompId").value("TARGET"))
+                .andExpect(jsonPath("$.config.host").value("localhost"))
+                .andExpect(jsonPath("$.config.port").value(9876))
+                .andExpect(jsonPath("$.diagnostics.lastEvent").value("Initiator stopped"))
                 .andExpect(jsonPath("$.diagnostics.lastError").value(""))
                 .andExpect(jsonPath("$.diagnostics.lastUpdatedAt").isNotEmpty());
     }
@@ -59,8 +62,8 @@ class FixControlControllerTest {
                 .andExpect(jsonPath("$.details").value(""))
                 .andExpect(jsonPath("$.sessions").isArray())
                 .andExpect(jsonPath("$.sessions[0]").value("FIX.4.4:YOUR_SENDER_COMP_ID->YOUR_TARGET_COMP_ID"))
-                .andExpect(jsonPath("$.config.senderCompId").value(""))
-                .andExpect(jsonPath("$.diagnostics.lastEvent").value("RUNNING"))
+                .andExpect(jsonPath("$.config.senderCompId").value("SENDER"))
+                .andExpect(jsonPath("$.diagnostics.lastEvent").value("Initiator started"))
                 .andExpect(jsonPath("$.diagnostics.lastUpdatedAt").isNotEmpty());
 
         verify(fixControlService, times(1)).start();
@@ -77,7 +80,7 @@ class FixControlControllerTest {
                 .andExpect(jsonPath("$.status").value("ERROR"))
                 .andExpect(jsonPath("$.details").value("failed to start"))
                 .andExpect(jsonPath("$.sessions").isArray())
-                .andExpect(jsonPath("$.diagnostics.lastEvent").value("ERROR"))
+                .andExpect(jsonPath("$.diagnostics.lastEvent").value("Start failed"))
                 .andExpect(jsonPath("$.diagnostics.lastError").value("failed to start"))
                 .andExpect(jsonPath("$.diagnostics.lastUpdatedAt").isNotEmpty());
 
@@ -93,8 +96,8 @@ class FixControlControllerTest {
                 .andExpect(jsonPath("$.status").value("STOPPED"))
                 .andExpect(jsonPath("$.details").value(""))
                 .andExpect(jsonPath("$.sessions").isArray())
-                .andExpect(jsonPath("$.config.senderCompId").value(""))
-                .andExpect(jsonPath("$.diagnostics.lastEvent").value("STOPPED"))
+                .andExpect(jsonPath("$.config.senderCompId").value("SENDER"))
+                .andExpect(jsonPath("$.diagnostics.lastEvent").value("Initiator stopped"))
                 .andExpect(jsonPath("$.diagnostics.lastUpdatedAt").isNotEmpty());
 
         verify(fixControlService, times(1)).stop();
@@ -102,6 +105,21 @@ class FixControlControllerTest {
 
     private static InitiatorServiceStatus statusResponse(
             InitiatorStatus status, String details, List<String> sessions) {
-        return new InitiatorServiceStatus(status, details, sessions);
+        String event;
+        if (status == InitiatorStatus.RUNNING) {
+            event = "Initiator started";
+        } else if (status == InitiatorStatus.ERROR) {
+            event = "Start failed";
+        } else if (status == InitiatorStatus.STARTING) {
+            event = "Start requested";
+        } else {
+            event = "Initiator stopped";
+        }
+        return new InitiatorServiceStatus(
+                status,
+                details,
+                sessions,
+                new FixSessionConfig("SENDER", "TARGET", "localhost", 9876),
+                new InitiatorDiagnostics(event, details, Instant.now()));
     }
 }
