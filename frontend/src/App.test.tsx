@@ -10,7 +10,7 @@ afterEach(() => {
 describe('App', () => {
   it('calls /fix/status and renders returned FIX status', async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      if (input === 'http://localhost:8080/health') {
+      if (input === '/health') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ status: 'ok' }),
@@ -38,7 +38,7 @@ describe('App', () => {
 
   it('triggers /fix/start and /fix/stop POST requests from buttons', async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      if (input === 'http://localhost:8080/health') {
+      if (input === '/health') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ status: 'ok' }),
@@ -74,5 +74,49 @@ describe('App', () => {
       expect(fetchMock).toHaveBeenCalledWith('/fix/start', { method: 'POST' })
       expect(fetchMock).toHaveBeenCalledWith('/fix/stop', { method: 'POST' })
     })
+  })
+
+  it('polls /fix/status every 2 seconds', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      if (input === '/health') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ status: 'ok' }),
+        } as Response)
+      }
+
+      if (input === '/fix/status') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ status: 'RUNNING' }),
+        } as Response)
+      }
+
+      return Promise.reject(new Error(`Unexpected request: ${String(input)}`))
+    })
+
+    let pollCallback: (() => void) | undefined
+    const setIntervalSpy = vi
+      .spyOn(window, 'setInterval')
+      .mockImplementation(((handler: TimerHandler) => {
+        if (typeof handler === 'function') {
+          pollCallback = handler as () => void
+        }
+        return 1 as unknown as number
+      }) as typeof window.setInterval)
+
+    const clearIntervalSpy = vi
+      .spyOn(window, 'clearInterval')
+      .mockImplementation(() => {})
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(fetchMock as typeof fetch)
+    render(<App />)
+
+    await screen.findByText('RUNNING')
+    expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 2000)
+    expect(fetchMock).toHaveBeenCalledWith('/fix/status')
+
+    expect(pollCallback).toBeTypeOf('function')
+    expect(clearIntervalSpy).toHaveBeenCalledTimes(1)
   })
 })

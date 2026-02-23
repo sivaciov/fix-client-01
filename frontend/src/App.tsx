@@ -16,7 +16,7 @@ function App() {
 
   const checkHealth = async () => {
     try {
-      const response = await fetch('http://localhost:8080/health')
+      const response = await fetch('/health')
 
       if (!response.ok) {
         setMessage(
@@ -38,9 +38,7 @@ function App() {
         }`,
       )
     } catch {
-      setMessage(
-        'Backend: unreachable. Make sure the API is running on http://localhost:8080.',
-      )
+      setMessage('Backend: unreachable. Make sure the API is running.')
     }
   }
 
